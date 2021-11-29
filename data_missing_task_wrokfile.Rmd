@@ -1,0 +1,262 @@
+---
+title: "data_missing"
+author: "zhao hongqiang"
+date: "11/13/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r include=FALSE}
+library(VIM)
+library(ForImp)
+library(MASS)
+library(psych)
+library(mice)
+```
+# Task 1. Multivariate normal distribution with missing completely at random
+## 1.  Generate  sample  X  with  100  observations  from  two-dimensional  normal  distribution. 
+Parameters of the distribution are the following:
+u=(2,-1) sigma = [[1,0.5],[0.5,1]]
+
+```{r}
+
+mean<-c(2, -1) 
+sigma<-matrix(c(1, 0.5,0.5, 1), nrow=2, ncol=2) 
+X <- mvrnorm(100, mean, sigma)
+
+```
+## 2. Replace some random values from sample X by missing values. In each variable (X1 and X2) approximately 25% of all observations should be missed. We will call the sample with missing values as Xmis.
+
+```{r}
+x1_na_list = sample(1:100,25)
+x2_na_list = sample(1:100,25)
+Xmis=X
+for (i in x1_na_list){
+  Xmis[i,1]=NA
+}
+for (i in x2_na_list){
+  Xmis[i,2]=NA
+}
+
+```
+
+## 3. Consider Xmis. Estimate mean-vector and covariance-matrix model parameters by using the following  methods:  a)  Complete-case  method;  b)  Available-case  method;  c)  Unconditional  mean imputation; d) Regression imputation. Compare results. 
+
+
+
+```{r}
+#a)  Complete-case  method;
+describe(Xmis[complete.cases(Xmis), ])
+cov(Xmis[complete.cases(Xmis), ])    
+cov(Xmis,use = "complete.obs")
+# b)  Available-case  method;
+cov(Xmis, use="pairwise.complete.obs")
+# c)  Unconditional  mean imputation;
+describe(meanimp(Xmis))
+cov(meanimp(Xmis))
+
+#d) Regression imputation.
+imp <- mice(Xmis, method = "norm.predict", m = 1)
+describe(complete(imp))
+cov(complete(imp))
+```
+
+
+
+## 4. Replace all values from sample X that less than -1 by missing values (left censoring). We will call this sample as Xcen. 
+```{r}
+Xcen= X
+Xcen[Xcen < -1] <- NA
+```
+
+
+
+
+5. Consider Xcen. Estimate mean-vector and covariance-matrix model parameters by using the 
+following  methods:  a)  Complete-case  method;  b)  Available-case  method;  c)  Unconditional  mean 
+imputation; d) Regression imputation. Compare results.
+
+```{r}
+#a)  Complete-case  method;
+describe(Xcen[complete.cases(Xcen), ])
+cov(Xcen[complete.cases(Xcen), ])    
+cov(Xcen,use = "complete.obs")
+# b)  Available-case  method;
+cor(Xcen, use="pairwise.complete.obs")
+# c)  Unconditional  mean imputation;
+describe(meanimp(Xcen))
+cov(meanimp(Xcen))
+
+#d) Regression imputation.
+imp <- mice(Xcen, method = "norm.predict", m = 1)
+describe(complete(imp))
+cov(complete(imp))
+```
+# Task 2. Maximum likelihood method for censored data.
+## 1. Generate sample X with 100 observations from exponential distribution (choose the distribution parameter λ by yourself).
+```{r}
+x=rexp(100,1/2)
+x
+```
+
+
+
+
+
+2. Replace all values from sample X that less than c by missing values (left censoring). Choose the censoring level c by yourself. We will call this sample as X(1).
+```{r}
+x1=x
+x1[x1<1]<-NA
+x1
+```
+3. Consider X(1). a) Estimate model parameter λ by using maximum likelihood method for censored data. b) Remove all missing observations and estimate model parameter λ by using classical estimator for complete data. Compare results.
+```{r}
+# a) Estimate model parameter λ by using maximum likelihood method for censored data.
+# f <- function(lamda){
+#    logL = -n*log(lamda) - sum(x1/lamda)
+#    return (logL)
+# }
+# 
+# f = function(theat){
+#    result = (theat^-r)*exp(-sum(x1/theat,na.rm = T)*exp(-((n-r)*c)/theat))
+#    return(result)
+#    }
+c = 1
+r = length(x1[!is.na(x1)])
+n = length(x1)
+max_theat_hat = function(yi,n,c,r){
+   theat = r/(sum(x1,na.rm = T)+((n-r)*c))
+   return(theat)
+}
+max_theat_hat(x1,n,c,r)
+
+#b) Remove all missing observations and estimate model parameter λ by using classical estimator for complete data.
+f <- function(lamda){
+   logL = n*log(lamda) - lamda*sum(x1[!is.na(x1)])
+   return (logL)
+}
+
+n = length(x1[!is.na(x1)])
+optimize(f,c(0,1),maximum = TRUE)
+hat_lambda = n/sum(x1[!is.na(x1)])
+hat_lambda
+
+```
+the lamda a =0.9999339   b= 0.2782054
+
+
+## 4. Replace all values from sample X that greater than c by missing values (right censoring). Choose the censoring level c by yourself. We will call this sample as X(2).
+```{r}
+x2=x
+x2[x2>4]<-NA
+x2
+```
+
+
+## 5. Consider X(2). a) Estimate model parameter λ by using maximum likelihood method for censored data. b) Remove all missing observations and estimate model parameter λ by using classical estimator for complete data. Compare results.
+
+```{r}
+c = 4
+r = length(x2[!is.na(x2)])
+n = length(x2)
+max_theat_hat = function(yi,n,c,r){
+   theat = r/(sum(x1,na.rm = T)+((n-r)*c))
+   return(theat)
+}
+max_theat_hat(x1,n,c,r)
+#b) Remove all missing observations and estimate model parameter λ by using classical estimator for complete data.
+f <- function(lamda){
+    
+   logL = n*log(lamda) - lamda*sum(x2[!is.na(x2)])
+   return (logL)
+}
+
+n = length(x2[!is.na(x2)])
+optimize(f,c(0,1),maximum = TRUE)
+b = optimize(f,c(0,1),maximum = TRUE)
+hat_lambda = n/sum(x2[!is.na(x2)])
+hat_lambda
+
+```
+
+
+
+# Task 3. EM-algorithm
+## 1. Generate sample X with 100 observations from two-dimensional normal distribution. Parameters of the distribution are the following:
+```{r}
+n <- 100
+r <- floor(n*0.3)
+mu<-c(2, -1) 
+sigma<-matrix(c(1, 0.5,0.5, 1), nrow=2, ncol=2) 
+Y <- rmvnorm(n, mean=mu, sigma=sigma)
+
+```
+
+
+
+
+## 2. Replace some random values from sample X by missing values. In each variable (X1 and X2)
+approximately 25% of all observations should be missed. We will call the sample with missing values as
+Xmis.
+```{r}
+missing_idx <-sample(100, r, replace = FALSE)
+Y[missing_idx, 2] <- NA
+```
+
+
+## 3. Estimate Consider Xmis. Estimate mean-vector and covariance-matrix model parameters by
+using EM-algorithm
+
+
+
+```{r}
+Estep=function(Y, mu, Sigma, missing_idx)
+{
+n=nrow(Y)
+sigma_22.1=Sigma[2,2]-Sigma[1,2]^2/Sigma[1,1]
+beta_21.1=Sigma[1,2]/Sigma[1,1]
+beta_20.1=mu[2]-beta_21.1*mu[1]
+
+E_y2=rep(0, n)
+E_y2[missing_idx]=rep(beta_20.1, length(missing_idx))+beta_21.1*Y[missing_idx,1]
+E_y2[setdiff(1:n, missing_idx)]=Y[setdiff(1:n, missing_idx),2]
+E_y1=Y[,1]
+E_y2_y2=rep(0, n)
+E_y2_y2[missing_idx]=E_y2[missing_idx]^2+rep(sigma_22.1, length(missing_idx))
+E_y2_y2[setdiff(1:n, missing_idx)]=E_y2[setdiff(1:n, missing_idx)]^2
+E_y1_y1=Y[,1]^2
+E_y1_y2=rep(0, n)
+E_y1_y2=E_y2*E_y1
+return(structure(list(s1=sum(E_y1), s2=sum(E_y2), s11=sum(E_y1_y1), s22=sum(E_y2_y2), s12=sum(E_y1_y2))))
+}
+
+Mstep=function(Y, s1, s2, s11, s22, s12)
+{
+n=nrow(Y)
+mu1=s1/n
+mu2=s2/n
+sigma1=s11/n-mu1^2
+sigma2=s22/n-mu2^2
+sigma12=s12/n-mu1*mu2
+mu=c(mu1,mu2)
+Sigma=matrix(c(sigma1, sigma12,sigma12,sigma2), nrow=2)
+return(structure(list(mu=mu, Sigma=Sigma)))
+}
+
+E=Estep(Y, mu, sigma, missing_idx)
+s1=E$s1
+s11=E$s11
+s2=E$s2
+s22=E$s22
+s12=E$s12
+M=Mstep(Y, s1, s2, s11, s22, s12)
+hat_mu=M$mu
+hat_mu
+hat_Sigma=M$Sigma
+hat_Sigma
+```
+
